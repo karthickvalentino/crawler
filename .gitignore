@@ -1,0 +1,29 @@
+# ignore files here
+
+**/node_modules
+/report_db2csv/node_modules
+/tmp
+/.idea
+/.nyc**
+# dotenv environment variables file
+
+# zipped files
+
+*.zip
+*.history
+*.[0-9].js
+.DS_Store
+*.csv
+*.groovy
+*.cmp
+*coverage
+*.bak
+*.vscode
+*.scannerwork
+
+# Files
+*.log
+*.sample.json
+
+**/__pycache__
+**/archive
