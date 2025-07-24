@@ -17,6 +17,7 @@ from src.rabbitmq_events import (
     event_manager
 )
 from src.crawlers.crawler_event_handlers import setup_crawler_event_handlers
+from src.data_processing_handlers import setup_data_processing_handlers
 
 # Import our new crawler system
 from src.crawlers.crawler_factory import (
@@ -49,34 +50,8 @@ loop_thread = None
 running_jobs = {}  # Track running crawler jobs
 event_handler = None
 
-# def setup_event_loop():
-#     """Setup event loop in a separate thread for async operations"""
-#     global loop, loop_thread
-    
-#     def run_loop():
-#         global loop
-#         loop = asyncio.new_event_loop()
-#         asyncio.set_event_loop(loop)
-#         loop.run_forever()
-    
-#     loop_thread = threading.Thread(target=run_loop, daemon=True)
-#     loop_thread.start()
-    
-#     # Wait for loop to be ready
-#     import time
-#     while loop is None:
-#         time.sleep(0.1)
-
 def run_async(coro):
     """Run async function in the event loop"""
-    # if loop is None:
-    #     setup_event_loop()
-    
-    # future = asyncio.run_coroutine_threadsafe(coro, loop)
-    # return future.result(timeout=30)
-    # return future.result()
-
-    # p = Process(target=coro, args=(url, depth, custom_flags))
     print('start process')
     p = Process(target=coro)
     p.start()
@@ -112,6 +87,7 @@ def initialize_system():
         
         # Setup event handlers
         event_handler = setup_crawler_event_handlers(loop)
+        setup_data_processing_handlers()
         
         # Start RabbitMQ event system
         if not start_event_system():
@@ -124,16 +100,6 @@ def initialize_system():
     except Exception as e:
         logger.error(f"Failed to initialize system: {str(e)}")
         return False
-
-# def initialize_crawler_system():
-#     """Initialize the crawler system with available types"""
-#     try:
-#         register_api_crawler()  # Register custom API crawler
-#         logger.info("Crawler system initialized successfully")
-#         return True
-#     except Exception as e:
-#         logger.error(f"Failed to initialize crawler system: {str(e)}")
-#         return False
 
 def get_crawler_type_from_env() -> str:
     """Get crawler type from environment variable"""
@@ -442,7 +408,7 @@ def get_all_crawlers_status():
             "total_jobs": len(running_jobs),
             "crawler_type": get_crawler_type_from_env(),
             "crawlers": formatted_statuses,
-            "rabbitmq_connected": event_manager.connection and not event_manager.connection.is_closed,
+            "rabbitmq_connected": event_manager.consumer_connection and event_manager.consumer_connection.is_open,
             "timestamp": datetime.now().isoformat()
         }), 200
     
@@ -472,9 +438,6 @@ def get_config():
             "CRAWLER_TYPE": os.getenv('CRAWLER_TYPE', 'scrapy')
         }
     }), 200
-
-# Initialize the crawler system on startup
-# initialize_crawler_system()
 
 # Event status update handlers (called by RabbitMQ events)
 def update_job_status(job_id: str, status: str, additional_data: Dict[str, Any] = None):
@@ -621,15 +584,6 @@ if not initialize_system():
 setup_status_update_handlers()
 
 if __name__ == "__main__":
-    # # Setup event loop for async operations
-    # # setup_event_loop()
-    
-    # # Log startup information
-    # logger.info(f"Starting Flask app with crawler type: {get_crawler_type_from_env()}")
-    # logger.info(f"Supported crawler types: {CrawlerFactory.get_supported_types()}")
-    
-    # app.run(debug=True)
-
     # Log startup information
     logger.info(f"Starting Flask app with crawler type: {get_crawler_type_from_env()}")
     logger.info(f"Supported crawler types: {CrawlerFactory.get_supported_types()}")
