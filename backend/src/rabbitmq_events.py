@@ -47,9 +47,10 @@ class RabbitMQEventManager:
         self.password = password or os.getenv('RABBITMQ_PASSWORD', 'crawler_pass')
         self.virtual_host = virtual_host or os.getenv('RABBITMQ_VHOST', 'crawler_vhost')
         
-        # Connection and channel
-        self.connection = None
-        self.channel = None
+        # Connections and channels
+        self.publisher_connection = None
+        self.consumer_connection = None
+        self.consumer_channel = None
         self.consuming = False
         self.consumer_thread = None
         
@@ -60,11 +61,13 @@ class RabbitMQEventManager:
         self.crawler_exchange = 'crawler_events'
         self.crawler_queue = 'crawler_commands'
         self.status_queue = 'crawler_status'
+
+        self.publisher_thread_local = threading.local()
         
         logger.info(f"Initialized RabbitMQ Event Manager for {self.host}:{self.port}")
     
-    def connect(self) -> bool:
-        """Establish connection to RabbitMQ"""
+    def _create_connection(self) -> Optional[pika.BlockingConnection]:
+        """Create a new connection to RabbitMQ"""
         try:
             credentials = pika.PlainCredentials(self.username, self.password)
             parameters = pika.ConnectionParameters(
@@ -75,92 +78,117 @@ class RabbitMQEventManager:
                 heartbeat=600,
                 blocked_connection_timeout=300
             )
-            
-            self.connection = pika.BlockingConnection(parameters)
-            self.channel = self.connection.channel()
-            
-            # Declare exchange
-            self.channel.exchange_declare(
+            return pika.BlockingConnection(parameters)
+        except Exception as e:
+            logger.error(f"Failed to create RabbitMQ connection: {str(e)}")
+            return None
+
+    def _get_publisher_channel(self) -> Optional[pika.channel.Channel]:
+        """Get a channel for the current thread."""
+        if not hasattr(self.publisher_thread_local, "connection") or self.publisher_thread_local.connection.is_closed:
+            self.publisher_thread_local.connection = self._create_connection()
+            if self.publisher_thread_local.connection is None:
+                return None
+        
+        if not hasattr(self.publisher_thread_local, "channel") or self.publisher_thread_local.channel.is_closed:
+            self.publisher_thread_local.channel = self.publisher_thread_local.connection.channel()
+            self.publisher_thread_local.channel.exchange_declare(
                 exchange=self.crawler_exchange,
                 exchange_type='topic',
                 durable=True
             )
-            
-            # Declare queues
-            self.channel.queue_declare(queue=self.crawler_queue, durable=True)
-            self.channel.queue_declare(queue=self.status_queue, durable=True)
-            
-            # Bind queues to exchange
-            self.channel.queue_bind(
-                exchange=self.crawler_exchange,
-                queue=self.crawler_queue,
-                routing_key='crawler.command.*'
-            )
-            
-            self.channel.queue_bind(
-                exchange=self.crawler_exchange,
-                queue=self.status_queue,
-                routing_key='crawler.status.*'
-            )
-            
-            logger.info("Connected to RabbitMQ successfully")
+        return self.publisher_thread_local.channel
+
+    def connect_consumer(self) -> bool:
+        """Establish consumer connection to RabbitMQ"""
+        if self.consumer_connection and self.consumer_connection.is_open:
             return True
-            
-        except Exception as e:
-            logger.error(f"Failed to connect to RabbitMQ: {str(e)}")
+        
+        self.consumer_connection = self._create_connection()
+        if not self.consumer_connection:
             return False
+            
+        self.consumer_channel = self.consumer_connection.channel()
+        
+        # Declare exchange
+        self.consumer_channel.exchange_declare(
+            exchange=self.crawler_exchange,
+            exchange_type='topic',
+            durable=True
+        )
+        
+        # Declare queues
+        self.consumer_channel.queue_declare(queue=self.crawler_queue, durable=True)
+        self.consumer_channel.queue_declare(queue=self.status_queue, durable=True)
+        
+        # Bind queues
+        self.consumer_channel.queue_bind(
+            exchange=self.crawler_exchange,
+            queue=self.crawler_queue,
+            routing_key='crawler.command.*'
+        )
+        self.consumer_channel.queue_bind(
+            exchange=self.crawler_exchange,
+            queue=self.status_queue,
+            routing_key='crawler.status.*'
+        )
+        
+        logger.info("Consumer connected to RabbitMQ successfully")
+        return True
     
     def disconnect(self):
-        """Close RabbitMQ connection"""
+        """Close all RabbitMQ connections"""
+        self.stop_consuming()
+        
+        # Close publisher connections for the current thread
+        if hasattr(self.publisher_thread_local, "connection") and self.publisher_thread_local.connection.is_open:
+            self.publisher_thread_local.connection.close()
+            logger.info("Disconnected publisher from RabbitMQ for current thread")
+
+        # Close consumer connection
         try:
-            self.consuming = False
-            if self.consumer_thread and self.consumer_thread.is_alive():
-                self.consumer_thread.join(timeout=5)
-            
-            if self.connection and not self.connection.is_closed:
-                self.connection.close()
-                logger.info("Disconnected from RabbitMQ")
+            if self.consumer_connection and self.consumer_connection.is_open:
+                self.consumer_connection.close()
+                logger.info("Disconnected consumer from RabbitMQ")
         except Exception as e:
-            logger.error(f"Error disconnecting from RabbitMQ: {str(e)}")
+            logger.error(f"Error disconnecting consumer from RabbitMQ: {str(e)}")
     
     def publish_event(self, event_type: CrawlerEvent, data: Dict[str, Any], routing_key: str = None) -> bool:
-        """Publish an event to RabbitMQ"""
         try:
-            if not self.connection or self.connection.is_closed:
-                if not self.connect():
-                    return False
-            
-            # Prepare message
+            channel = self._get_publisher_channel()
+            if not channel:
+                logger.error("Could not get a publisher channel.")
+                return False
+
             message = {
                 'event_type': event_type.value,
                 'timestamp': datetime.now().isoformat(),
                 'data': data
             }
-            
-            # Determine routing key
+
             if not routing_key:
-                if event_type in [CrawlerEvent.START_CRAWLER, CrawlerEvent.STOP_CRAWLER, 
-                                CrawlerEvent.PAUSE_CRAWLER, CrawlerEvent.RESUME_CRAWLER]:
-                    routing_key = f'crawler.command.{event_type.value}'
-                else:
-                    routing_key = f'crawler.status.{event_type.value}'
-            
-            # Publish message
-            self.channel.basic_publish(
+                routing_key = f'crawler.command.{event_type.value}'
+
+            channel.basic_publish(
                 exchange=self.crawler_exchange,
                 routing_key=routing_key,
                 body=json.dumps(message),
                 properties=pika.BasicProperties(
-                    delivery_mode=2,  # Make message persistent
+                    delivery_mode=2, # make message persistent
                     timestamp=int(time.time())
                 )
             )
-            
-            logger.debug(f"Published event: {event_type.value} with routing key: {routing_key}")
+            logger.info(f"Published {event_type.value} to {routing_key}")
             return True
-            
+
+        except pika.exceptions.AMQPConnectionError as e:
+            logger.error(f"AMQP connection failed during publish: {e}")
+            # Connection will be re-established on next call
+            if hasattr(self.publisher_thread_local, "connection"):
+                self.publisher_thread_local.connection.close()
+            return False
         except Exception as e:
-            logger.error(f"Failed to publish event {event_type.value}: {str(e)}")
+            logger.exception(f"Failed to publish event: {e}")
             return False
     
     def register_event_handler(self, event_type: CrawlerEvent, handler: Callable):
@@ -171,75 +199,77 @@ class RabbitMQEventManager:
     def _handle_message(self, channel, method, properties, body):
         """Handle incoming RabbitMQ message"""
         try:
-            # Parse message
             message = json.loads(body.decode('utf-8'))
             event_type = message.get('event_type')
             data = message.get('data', {})
-            timestamp = message.get('timestamp')
             
-            logger.debug(f"Received event: {event_type} at {timestamp}")
+            logger.debug(f"Received event: {event_type}")
             
-            # Call appropriate handler
             if event_type in self.event_handlers:
                 try:
                     self.event_handlers[event_type](data)
-                    # Acknowledge message
                     channel.basic_ack(delivery_tag=method.delivery_tag)
                     logger.debug(f"Successfully handled event: {event_type}")
                 except Exception as e:
                     logger.error(f"Error handling event {event_type}: {str(e)}")
-                    # Reject message and requeue
                     channel.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
             else:
                 logger.warning(f"No handler registered for event: {event_type}")
-                # Acknowledge to remove from queue
                 channel.basic_ack(delivery_tag=method.delivery_tag)
                 
         except Exception as e:
             logger.error(f"Error processing message: {str(e)}")
-            # Reject message
             channel.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
     
     def start_consuming(self):
-        """Start consuming messages from RabbitMQ"""
+        """Start consuming events in a separate thread."""
+        if self.consuming:
+            logger.warning("Consumer is already running.")
+            return
+
         def consume():
-            try:
-                if not self.connection or self.connection.is_closed:
-                    if not self.connect():
-                        return
-                
-                # Set up consumer
-                self.channel.basic_qos(prefetch_count=1)
-                self.channel.basic_consume(
-                    queue=self.crawler_queue,
-                    on_message_callback=self._handle_message
-                )
-                
-                logger.info("Started consuming crawler events")
-                self.consuming = True
-                
-                # Start consuming
-                while self.consuming:
-                    try:
-                        self.connection.process_data_events()
-                    except Exception as e:
-                        logger.error(f"Error processing events: {str(e)}")
-                        time.sleep(1)
-                        
-            except Exception as e:
-                logger.error(f"Error in consumer thread: {str(e)}")
-        
-        # Start consumer in separate thread
+            self.consuming = True
+            logger.info("Consumer thread started.")
+            while self.consuming:
+                try:
+                    if not self.connect_consumer():
+                        logger.error("Consumer could not connect. Retrying in 5 seconds.")
+                        time.sleep(5)
+                        continue
+                    
+                    self.consumer_channel.basic_qos(prefetch_count=1)
+                    self.consumer_channel.basic_consume(
+                        queue=self.crawler_queue,
+                        on_message_callback=self._handle_message
+                    )
+                    logger.info("Started consuming crawler events")
+                    self.consumer_channel.start_consuming()
+                except (pika.exceptions.ConnectionClosedByBroker, pika.exceptions.AMQPConnectionError) as e:
+                    logger.warning(f"Consumer connection lost: {e}. Reconnecting...")
+                    time.sleep(5)
+                except Exception as e:
+                    logger.error(f"Critical error in consumer thread: {str(e)}")
+                    self.consuming = False
+            logger.info("Consumer thread stopped.")
+
         self.consumer_thread = threading.Thread(target=consume, daemon=True)
         self.consumer_thread.start()
-        logger.info("Started RabbitMQ consumer thread")
-    
+
     def stop_consuming(self):
-        """Stop consuming messages"""
-        self.consuming = False
-        if self.consumer_thread and self.consumer_thread.is_alive():
-            self.consumer_thread.join()
-        logger.info("Stopped consuming crawler events")
+        """Stop the consumer thread."""
+        if not self.consuming:
+            return
+        
+        try:
+            self.consuming = False
+            if self.consumer_channel and self.consumer_channel.is_open:
+                self.consumer_channel.stop_consuming()
+            if self.consumer_thread and self.consumer_thread.is_alive():
+                self.consumer_thread.join(timeout=5)
+            logger.info("Stopped consuming crawler events")
+        except Exception as e:
+            logger.error(f"Error stopping consumer: {e}")
+
 
 # Global event manager instance
 event_manager = RabbitMQEventManager()
@@ -254,13 +284,10 @@ def register_crawler_event_handler(event_type: CrawlerEvent, handler: Callable):
     event_manager.register_event_handler(event_type, handler)
 
 def start_event_system():
-    """Start the event system"""
-    if event_manager.connect():
-        event_manager.start_consuming()
-        return True
-    return False
+    """Start the event system's consumer"""
+    event_manager.start_consuming()
+    return True
 
 def stop_event_system():
     """Stop the event system"""
-    event_manager.stop_consuming()
     event_manager.disconnect()

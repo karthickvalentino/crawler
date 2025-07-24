@@ -17,7 +17,6 @@ class ScrapyCrawler(CrawlerInterface):
         self.spider_module = config.get('spider_module')
         self.crawler_process = None
         self.crawler_runner = None
-        # self.deferred = None
         self._validate_scrapy_config()
     
     def _validate_scrapy_config(self):
@@ -36,7 +35,7 @@ class ScrapyCrawler(CrawlerInterface):
             self._clear_error()
             
             # Import Scrapy components
-            from scrapy.crawler import CrawlerRunner, CrawlerProcess
+            from scrapy.crawler import CrawlerProcess
             from scrapy.utils.project import get_project_settings
             # from twisted.internet import reactor, defer
             
