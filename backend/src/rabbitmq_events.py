@@ -29,6 +29,7 @@ class CrawlerEvent(Enum):
     CRAWLER_FAILED = "crawler_failed"
     CRAWLER_PROGRESS = "crawler_progress"
     CRAWLER_ERROR = "crawler_error"
+    PAGE_PROCESSED = "page_processed"
 
 class RabbitMQEventManager:
     """Manages RabbitMQ connections and event publishing/consuming"""
@@ -61,6 +62,7 @@ class RabbitMQEventManager:
         self.crawler_exchange = 'crawler_events'
         self.crawler_queue = 'crawler_commands'
         self.status_queue = 'crawler_status'
+        self.data_processing_queue = 'data_processing'
 
         self.publisher_thread_local = threading.local()
         
@@ -120,6 +122,7 @@ class RabbitMQEventManager:
         # Declare queues
         self.consumer_channel.queue_declare(queue=self.crawler_queue, durable=True)
         self.consumer_channel.queue_declare(queue=self.status_queue, durable=True)
+        self.consumer_channel.queue_declare(queue=self.data_processing_queue, durable=True)
         
         # Bind queues
         self.consumer_channel.queue_bind(
@@ -131,6 +134,11 @@ class RabbitMQEventManager:
             exchange=self.crawler_exchange,
             queue=self.status_queue,
             routing_key='crawler.status.*'
+        )
+        self.consumer_channel.queue_bind(
+            exchange=self.crawler_exchange,
+            queue=self.data_processing_queue,
+            routing_key='crawler.data.#'
         )
         
         logger.info("Consumer connected to RabbitMQ successfully")
@@ -242,6 +250,10 @@ class RabbitMQEventManager:
                         queue=self.crawler_queue,
                         on_message_callback=self._handle_message
                     )
+                    self.consumer_channel.basic_consume(
+                        queue=self.data_processing_queue,
+                        on_message_callback=self._handle_message
+                    )
                     logger.info("Started consuming crawler events")
                     self.consumer_channel.start_consuming()
                 except (pika.exceptions.ConnectionClosedByBroker, pika.exceptions.AMQPConnectionError) as e:
@@ -275,9 +287,9 @@ class RabbitMQEventManager:
 event_manager = RabbitMQEventManager()
 
 # Convenience functions
-def publish_crawler_event(event_type: CrawlerEvent, data: Dict[str, Any]) -> bool:
+def publish_crawler_event(event_type: CrawlerEvent, data: Dict[str, Any], routing_key: str = None) -> bool:
     """Publish a crawler event"""
-    return event_manager.publish_event(event_type, data)
+    return event_manager.publish_event(event_type, data, routing_key=routing_key)
 
 def register_crawler_event_handler(event_type: CrawlerEvent, handler: Callable):
     """Register an event handler"""
