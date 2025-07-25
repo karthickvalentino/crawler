@@ -54,20 +54,28 @@ cp backend/.env.example backend/.env
 
 The default values are configured to work with the `docker-compose.yml` file.
 
-### 3. Install Dependencies and Start Services
+### 3. Set Up Python Environment
 
-This single command will install the Python dependencies (via `conda` and `pip`) and then start all the necessary Docker containers.
+This project uses a Conda environment to manage Python dependencies.
 
 ```bash
-npm install
-npm run docker:up
+# Create and activate the conda environment
+conda create -n crawler python=3.10 -y
+conda activate crawler
+
+# Install the required python packages
+pip install -r backend/requirements.txt
 ```
 
-### 4. Run Database Migrations
+### 4. Start Services and Run Migrations
 
-Once the Docker containers are running, apply the database migrations to set up the `web_pages` table.
+These commands will start the Docker containers and then apply the database migrations.
 
 ```bash
+# Start Docker containers (Postgres, RabbitMQ, Ollama)
+npm run docker:up
+
+# Apply database migrations
 npm run db:up
 ```
 
@@ -76,7 +84,7 @@ npm run db:up
 Finally, start the Flask application.
 
 ```bash
-PYTHONPATH=. python backend/src/app.py
+conda run -n crawler python backend/src/app.py
 ```
 
 The application will be running at `http://localhost:5000`.
