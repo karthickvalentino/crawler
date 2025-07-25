@@ -7,40 +7,25 @@ This project is a powerful and scalable web crawling system designed to fetch, p
 *   **Asynchronous Crawling**: Utilizes RabbitMQ to manage crawling jobs, allowing for non-blocking operations and easy scalability.
 *   **Multiple Crawler Implementations**: Switch between different crawling backends (`Scrapy`, `Selenium`, custom APIs) via a simple configuration change.
 *   **Semantic Search**: Leverages vector embeddings (via `pgvector`) to provide intelligent, meaning-based search over the crawled data.
-*   **Dockerized Infrastructure**: Core dependencies like PostgreSQL and RabbitMQ are managed with Docker, ensuring a consistent and easy-to-set-up environment.
+*   **Dockerized Infrastructure**: Core dependencies like PostgreSQL, RabbitMQ, and Ollama are managed with Docker, ensuring a consistent and easy-to-set-up environment.
+*   **Database Migrations**: Uses Alembic to manage database schema changes in a structured and version-controlled way.
 *   **RESTful API**: A Flask-based API provides endpoints to start, stop, and monitor crawlers, as well as perform searches.
-
-## Architecture Overview
-
-The system is composed of several key components:
-
-*   **API & Orchestration (`backend/src/app.py`)**: A Flask application that exposes a REST API for managing the system. It handles incoming requests and publishes events to RabbitMQ.
-*   **Asynchronous Messaging (`backend/src/rabbitmq_events.py`)**: RabbitMQ is used as a message broker to decouple the API from the crawlers. This allows for resilient and scalable job processing.
-*   **Crawler Abstraction (`backend/src/crawlers/`)**: A factory pattern is used to create and manage different types of crawlers. This makes the system extensible and allows for choosing the best tool for a given website.
-    *   **Implementations**: Includes `Scrapy` for fast, efficient crawling and `Selenium` for dynamic, JavaScript-heavy sites.
-*   **Event Handlers (`backend/src/crawlers/crawler_event_handlers.py`)**: These are the consumers of the RabbitMQ messages. They listen for events (e.g., `START_CRAWLER`) and execute the corresponding crawling jobs.
-*   **Data Persistence (`backend/src/db.py`)**: A PostgreSQL database with the `pgvector` extension is used to store crawled data and their vector embeddings.
-*   **Search (`backend/src/search.py`, `backend/src/embeddings.py`)**: This component is responsible for generating vector embeddings from the crawled content and providing a search interface to find semantically similar results.
 
 ## Directory Structure
 
 ```
 .
+├── alembic.ini
 ├── docker-compose.yml
+├── package.json
 ├── backend
 │   ├── .env.example
-│   └── src
-│       ├── app.py                 # Flask API and main application entry point
-│       ├── db.py                  # Database connection and operations
-│       ├── embeddings.py          # Vector embedding generation
-│       ├── rabbitmq_events.py     # RabbitMQ event publishing and handling
-│       ├── search.py              # Semantic search logic
-│       └── crawlers
-│           ├── crawler_factory.py # Factory for creating crawlers
-│           ├── interface.py       # Common interface for all crawlers
-│           └── implementations
-│               ├── scrapy_crawler.py
-│               └── selenium_crawler.py
+│   ├── requirements.txt
+│   ├── alembic/
+│   └── src/
+│       ├── app.py
+│       ├── models.py
+│       └── ...
 └── ...
 ```
 
@@ -49,7 +34,8 @@ The system is composed of several key components:
 ### Prerequisites
 
 *   [Docker](https://www.docker.com/get-started) and [Docker Compose](https://docs.docker.com/compose/install/)
-*   [Python 3.8+](https://www.python.org/downloads/) and `pip`
+*   [Node.js and npm](https://nodejs.org/en/download/)
+*   [Conda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html) (for managing the Python environment)
 
 ### 1. Clone the Repository
 
@@ -66,35 +52,63 @@ Create a `.env` file in the `backend/` directory by copying the example file.
 cp backend/.env.example backend/.env
 ```
 
-Modify the `backend/.env` file as needed. The default values are configured to work with the `docker-compose.yml` file.
+The default values are configured to work with the `docker-compose.yml` file.
 
-### 3. Start Infrastructure Services
+### 3. Install Dependencies and Start Services
 
-This command will start the PostgreSQL database and RabbitMQ message broker in the background.
+This single command will install the Python dependencies (via `conda` and `pip`) and then start all the necessary Docker containers.
 
 ```bash
-docker-compose up -d
+npm install
+npm run docker:up
 ```
 
-You can check the status of the containers with `docker-compose ps`.
+### 4. Run Database Migrations
 
-### 4. Install Python Dependencies
-
-Navigate to the `backend` directory and install the required Python packages using the `requirements.txt` file.
+Once the Docker containers are running, apply the database migrations to set up the `web_pages` table.
 
 ```bash
-pip install -r backend/requirements.txt
+npm run db:up
 ```
 
 ### 5. Run the Application
 
-Once the dependencies are installed, you can start the Flask application.
+Finally, start the Flask application.
 
 ```bash
-python backend/src/app.py
+PYTHONPATH=. python backend/src/app.py
 ```
 
 The application will be running at `http://localhost:5000`.
+
+## Database Migrations
+
+This project uses Alembic to handle database schema migrations.
+
+### Creating a New Migration
+
+When you make changes to the SQLAlchemy models in `backend/src/models.py`, you'll need to generate a new migration script.
+
+1.  **Generate the migration script**:
+    ```bash
+    npm run db:new-migration -- -m "Your descriptive migration message"
+    ```
+    *Note the `--` which is required to pass arguments to the underlying script.*
+
+2.  **Review the script**: A new file will be created in `backend/alembic/versions/`. Open this file and review the generated code to ensure it's correct.
+
+3.  **Apply the migration**:
+    ```bash
+    npm run db:up
+    ```
+
+### Downgrading a Migration
+
+To revert the last migration, use the `db:down` command:
+
+```bash
+npm run db:down
+```
 
 ## API Endpoints
 
