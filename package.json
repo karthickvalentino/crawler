@@ -1,0 +1,14 @@
+{
+  "name": "crawler-project",
+  "version": "1.0.0",
+  "description": "A sophisticated, asynchronous web crawling and search system.",
+  "scripts": {
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "db:up": "alembic upgrade head",
+    "db:down": "alembic downgrade base",
+    "db:new-migration": "alembic revision --autogenerate -m"
+  },
+  "author": "",
+  "license": "ISC"
+}
