@@ -8,9 +8,14 @@ from sqlalchemy import (
     JSON,
     Index,
 )
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.sql import func
+from sqlalchemy.sql import func, text
 from pgvector.sqlalchemy import Vector
+from pydantic import BaseModel
+from typing import Optional, Dict, Any
+from datetime import datetime
+import uuid
 
 Base = declarative_base()
 
@@ -32,3 +37,40 @@ class WebPage(Base):
         Index('idx_web_pages_url', 'url'),
         Index('idx_web_pages_textsearch', 'title', 'meta_description', 'content', postgresql_using='gin'),
     )
+
+class Job(Base):
+    __tablename__ = 'jobs'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    status = Column(String, nullable=False, default='pending')
+    job_type = Column(String, nullable=False)
+    parameters = Column(JSON)
+    result = Column(JSON)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        Index('idx_jobs_status', 'status'),
+        Index('idx_jobs_job_type', 'job_type'),
+    )
+
+class JobBase(BaseModel):
+    job_type: str
+    parameters: Optional[Dict[str, Any]] = None
+
+class JobCreate(JobBase):
+    pass
+
+class JobUpdate(BaseModel):
+    status: Optional[str] = None
+    result: Optional[Dict[str, Any]] = None
+
+class JobInDB(JobBase):
+    id: uuid.UUID
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    result: Optional[Dict[str, Any]] = None
+
+    class Config:
+        orm_mode = True
