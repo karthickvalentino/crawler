@@ -1,5 +1,5 @@
-
-import WebPages from "@/components/web-pages/web-pages";
+import React from 'react';
+import WebPages from '@/components/web-pages/web-pages';
 
 const WebPagesPage = () => {
   return (

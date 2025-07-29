@@ -1,16 +1,16 @@
+'use client';
 
-"use client";
-
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import Image from "next/image";
-import { FileText, Briefcase } from "lucide-react";
+import React from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import Image from 'next/image';
+import { FileText, Briefcase } from 'lucide-react';
 
 const Sidebar = () => {
   const pathname = usePathname();
 
   const getSidebarLinks = () => {
-    if (pathname.startsWith("/web-pages")) {
+    if (pathname.startsWith('/web-pages')) {
       return (
         <Link
           href="/web-pages"
@@ -21,7 +21,7 @@ const Sidebar = () => {
         </Link>
       );
     }
-    if (pathname.startsWith("/jobs")) {
+    if (pathname.startsWith('/jobs')) {
       return (
         <Link
           href="/jobs"
