@@ -1,48 +1,43 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-import os
-import uuid
 import asyncio
-import threading
 import logging
-from typing import Dict, Any, Optional
-from multiprocessing import Process
+import os
+import threading
+import uuid
 from datetime import datetime
+from multiprocessing import Process
+from typing import Any, Dict, Optional
+
+from flask import Flask, jsonify, request
+from flask_cors import CORS
+from src.crawlers.crawler_event_handlers import setup_crawler_event_handlers
+
+# Import our new crawler system
+from src.crawlers.crawler_factory import (
+    create_and_register_crawler,
+    create_scrapy_crawler_with_settings,
+    create_selenium_crawler_with_options,
+    get_all_crawler_statuses,
+    get_crawler_manager,
+    get_crawler_status_by_name,
+    start_crawler_by_name,
+    stop_all_crawlers,
+    stop_crawler_by_name,
+)
+from src.crawlers.impl import CrawlerFactory
+from src.crawlers.implementations.custom_example import register_api_crawler
+from src.data_processing_handlers import setup_data_processing_handlers
+from src.db import create_job, delete_job, get_job, get_jobs, update_job
+from src.models import JobCreate, JobUpdate
 
 # Import RabbitMQ event system
 from src.rabbitmq_events import (
     CrawlerEvent,
+    event_manager,
     publish_crawler_event,
     start_event_system,
     stop_event_system,
-    event_manager
 )
-from src.crawlers.crawler_event_handlers import setup_crawler_event_handlers
-from src.data_processing_handlers import setup_data_processing_handlers
-
-# Import our new crawler system
-from src.crawlers.crawler_factory import (
-    create_scrapy_crawler_with_settings,
-    create_selenium_crawler_with_options,
-    create_and_register_crawler,
-    start_crawler_by_name,
-    stop_crawler_by_name,
-    get_crawler_status_by_name,
-    get_all_crawler_statuses,
-    stop_all_crawlers,
-    get_crawler_manager
-)
-from src.crawlers.impl import CrawlerFactory
-from src.crawlers.implementations.custom_example import register_api_crawler
-from src.search import search, get_web_pages, get_dashboard_analytics
-from src.db import (
-    create_job,
-    get_job,
-    get_jobs,
-    update_job,
-    delete_job,
-)
-from src.models import JobCreate, JobUpdate
+from src.search import get_dashboard_analytics, get_web_pages, search
 
 # Configure logging
 logging.basicConfig(
@@ -148,7 +143,7 @@ def list_web_pages():
         logger.error(f"Error in list_web_pages endpoint: {str(e)}")
         return jsonify({"error": f"Internal server error: {str(e)}"}), 500
 
-@app.route("/jobs", methods=["GET"])
+@app.route("/api/jobs", methods=["GET"])
 def list_jobs_api():
     """List all crawler jobs"""
     limit = int(request.args.get("limit", 100))
@@ -156,7 +151,7 @@ def list_jobs_api():
     jobs = get_jobs(limit=limit, offset=offset)
     return jsonify(jobs)
 
-@app.route("/jobs/<job_id>", methods=["GET"])
+@app.route("/api/jobs/<job_id>", methods=["GET"])
 def get_job_api(job_id: str):
     """Get a specific job by ID"""
     try:
@@ -167,7 +162,7 @@ def get_job_api(job_id: str):
     except ValueError:
         return jsonify({"error": "Invalid job ID format"}), 400
 
-@app.route("/jobs/<job_id>", methods=["PUT"])
+@app.route("/api/jobs/<job_id>", methods=["PUT"])
 def update_job_api(job_id: str):
     """Update a job's status or result"""
     try:
@@ -181,7 +176,7 @@ def update_job_api(job_id: str):
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
-@app.route("/jobs/<job_id>", methods=["DELETE"])
+@app.route("/api/jobs/<job_id>", methods=["DELETE"])
 def delete_job_api(job_id: str):
     """Delete a job"""
     try:
@@ -516,17 +511,18 @@ def cleanup_on_shutdown():
 
 # Register cleanup function
 import atexit
-atexit.register(cleanup_on_shutdown)
-
-# Initialize system on startup
-if not initialize_system():
-    logger.error("Failed to initialize system. Exiting...")
-    exit(1)
-
-# Setup status update handlers
-setup_status_update_handlers()
 
 if __name__ == "__main__":
+    # Initialize system on startup
+    if not initialize_system():
+        logger.error("Failed to initialize system. Exiting...")
+        exit(1)
+
+    # Setup status update handlers
+    setup_status_update_handlers()
+    
+    atexit.register(cleanup_on_shutdown)
+    
     # Log startup information
     logger.info(f"Starting Flask app with crawler type: {get_crawler_type_from_env()}")
     logger.info(f"Supported crawler types: {CrawlerFactory.get_supported_types()}")

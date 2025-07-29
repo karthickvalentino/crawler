@@ -7,7 +7,12 @@
     "docker:down": "docker-compose down",
     "db:up": "alembic upgrade head",
     "db:down": "alembic downgrade base",
-    "db:new-migration": "alembic revision --autogenerate -m"
+    "db:new-migration": "alembic revision --autogenerate -m",
+    "server:start": "cd backend && PYTHONPATH=. python app.py",
+    "client:start": "cd frontend && npm run dev",
+    "server:test": "pytest",
+    "client:test": "cd frontend && npm run test",
+    "client:e2e": "cd frontend && npm run cypress:run"
   },
   "author": "",
   "license": "ISC"

@@ -160,10 +160,10 @@ The main API endpoints are defined in `backend/src/app.py`.
 *   `GET /crawlers-status`: Gets the status of all jobs.
 *   `POST /search`: Performs a semantic search on the crawled data.
     *   **Body (JSON)**: `{ "query": "your search query", "limit": 5 }`
-*   `GET /jobs`: Get a list of all jobs.
-*   `GET /jobs/<job_id>`: Get a specific job by ID.
-*   `PUT /jobs/<job_id>`: Update a job.
-*   `DELETE /jobs/<job_id>`: Delete a job.
+*   `GET /api/jobs`: Get a list of all jobs.
+*   `GET /api/jobs/<job_id>`: Get a specific job by ID.
+*   `PUT /api/jobs/<job_id>`: Update a job.
+*   `DELETE /api/jobs/<job_id>`: Delete a job.
 
 ## Debugging
 

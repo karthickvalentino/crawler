@@ -1,5 +1,5 @@
-
-import Jobs from "@/components/jobs/jobs";
+import React from 'react';
+import Jobs from '@/components/jobs/jobs';
 
 const JobsPage = () => {
   return (
