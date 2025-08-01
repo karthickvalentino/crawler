@@ -1,11 +1,11 @@
 # Asynchronous Web Crawler and Semantic Search Engine
 
-This project is a powerful and scalable web crawling system designed to fetch, process, and index web content for semantic search. It uses an asynchronous, message-driven architecture with RabbitMQ and offers multiple crawling strategies, including Scrapy and Selenium.
+This project is a powerful and scalable web crawling system designed to fetch, process, and index web content for semantic search. It uses an asynchronous, message-driven architecture with RabbitMQ and Scrapy for crawling.
 
 ## Features
 
 *   **Asynchronous Crawling**: Utilizes RabbitMQ to manage crawling jobs, allowing for non-blocking operations and easy scalability.
-*   **Multiple Crawler Implementations**: Switch between different crawling backends (`Scrapy`, `Selenium`, custom APIs) via a simple configuration change.
+*   **Scrapy-based Crawling**: Uses the powerful and flexible Scrapy framework for web crawling.
 *   **Semantic Search**: Leverages vector embeddings (via `pgvector`) to provide intelligent, meaning-based search over the crawled data.
 *   **Modern Frontend**: A Next.js and Shadcn UI-based frontend provides a user-friendly interface to manage and monitor crawling jobs.
 *   **Dockerized Infrastructure**: Core dependencies like PostgreSQL, RabbitMQ, and Ollama are managed with Docker, ensuring a consistent and easy-to-set-up environment.

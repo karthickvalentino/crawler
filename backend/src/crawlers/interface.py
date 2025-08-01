@@ -1,9 +1,9 @@
-from abc import ABC, abstractmethod
-from enum import Enum
-from typing import Dict, Any, Optional, Type
 import logging
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum
+from typing import Any, Dict, Optional, Type
 
 logger = logging.getLogger(__name__)
 
@@ -92,31 +92,31 @@ class CrawlerInterface(ABC):
         """
         pass
     
-    @abstractmethod
-    def configure(self, config: Dict[str, Any]) -> bool:
-        """
-        Update crawler configuration
+    # @abstractmethod
+    # def configure(self, config: Dict[str, Any]) -> bool:
+    #     """
+    #     Update crawler configuration
         
-        Args:
-            config: New configuration parameters
+    #     Args:
+    #         config: New configuration parameters
             
-        Returns:
-            bool: True if configuration updated successfully
-        """
-        pass
+    #     Returns:
+    #         bool: True if configuration updated successfully
+    #     """
+    #     pass
     
-    @abstractmethod
-    def validate_config(self, config: Dict[str, Any]) -> bool:
-        """
-        Validate crawler configuration
+    # @abstractmethod
+    # def validate_config(self, config: Dict[str, Any]) -> bool:
+    #     """
+    #     Validate crawler configuration
         
-        Args:
-            config: Configuration to validate
+    #     Args:
+    #         config: Configuration to validate
             
-        Returns:
-            bool: True if configuration is valid
-        """
-        pass
+    #     Returns:
+    #         bool: True if configuration is valid
+    #     """
+    #     pass
     
     def get_error_message(self) -> Optional[str]:
         """Get the last error message if any"""
