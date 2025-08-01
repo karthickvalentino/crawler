@@ -14,8 +14,6 @@ from src.crawlers.crawler_event_handlers import setup_crawler_event_handlers
 # Import our new crawler system
 from src.crawlers.crawler_factory import (
     create_and_register_crawler,
-    create_scrapy_crawler_with_settings,
-    create_selenium_crawler_with_options,
     get_all_crawler_statuses,
     get_crawler_manager,
     get_crawler_status_by_name,
@@ -23,8 +21,6 @@ from src.crawlers.crawler_factory import (
     stop_all_crawlers,
     stop_crawler_by_name,
 )
-from src.crawlers.impl import CrawlerFactory
-from src.crawlers.implementations.custom_example import register_api_crawler
 from src.data_processing_handlers import setup_data_processing_handlers
 from src.db import create_job, delete_job, get_job, get_jobs, update_job
 from src.models import JobCreate, JobUpdate
@@ -83,9 +79,6 @@ def initialize_system():
     global event_handler
     
     try:
-        # Initialize crawler system
-        register_api_crawler()
-        
         # Setup event loop
         setup_event_loop()
         
@@ -104,18 +97,6 @@ def initialize_system():
     except Exception as e:
         logger.error(f"Failed to initialize system: {str(e)}")
         return False
-
-def get_crawler_type_from_env() -> str:
-    """Get crawler type from environment variable"""
-    crawler_type = os.getenv('CRAWLER_TYPE', 'scrapy').lower()
-    supported_types = CrawlerFactory.get_supported_types()
-    
-    if crawler_type not in supported_types:
-        logger.warning(f"Unsupported crawler type '{crawler_type}' in CRAWLER_TYPE. Using 'scrapy' as default.")
-        crawler_type = 'scrapy'
-    
-    logger.info(f"Using crawler type: {crawler_type}")
-    return crawler_type
 
 @app.route("/dashboard-analytics", methods=["GET"])
 def dashboard_analytics():
@@ -194,7 +175,7 @@ def start_crawler():
         domain = data.get("domain")
         depth = int(data.get("depth", 1))
         custom_flags = data.get("flags", {})
-        crawler_type = data.get("crawler_type") or get_crawler_type_from_env()
+        crawler_type = "scrapy"
 
         if not domain:
             return jsonify({"error": "Domain is required"}), 400
@@ -362,7 +343,7 @@ def get_all_crawlers_status():
 
         return jsonify({
             "total_jobs": len(jobs),
-            "crawler_type": get_crawler_type_from_env(),
+            "crawler_type": "scrapy",
             "crawlers": formatted_statuses,
             "rabbitmq_connected": event_manager.consumer_connection and event_manager.consumer_connection.is_open,
             "timestamp": datetime.now().isoformat()
@@ -382,19 +363,6 @@ def search_api():
         return jsonify({"error": "Query is required"}), 400
     results = search(query, top_k)
     return jsonify(results), 200
-
-@app.route("/config", methods=["GET"])
-def get_config():
-    """Get current crawler configuration"""
-    jobs = get_jobs(limit=1000)
-    return jsonify({
-        "crawler_type": get_crawler_type_from_env(),
-        "supported_types": CrawlerFactory.get_supported_types(),
-        "active_jobs": len(jobs),
-        "environment_variables": {
-            "CRAWLER_TYPE": os.getenv('CRAWLER_TYPE', 'scrapy')
-        }
-    }), 200
 
 # Event status update handlers (called by RabbitMQ events)
 def update_job_status_from_event(job_id: str, status: str, additional_data: Dict[str, Any] = None):
@@ -512,7 +480,9 @@ def cleanup_on_shutdown():
 # Register cleanup function
 import atexit
 
-if __name__ == "__main__":
+print("__name__", __name__)
+
+if __name__ == "__main__" or __name__ == "src.app":
     # Initialize system on startup
     if not initialize_system():
         logger.error("Failed to initialize system. Exiting...")
@@ -524,8 +494,7 @@ if __name__ == "__main__":
     atexit.register(cleanup_on_shutdown)
     
     # Log startup information
-    logger.info(f"Starting Flask app with crawler type: {get_crawler_type_from_env()}")
-    logger.info(f"Supported crawler types: {CrawlerFactory.get_supported_types()}")
+    logger.info(f"Starting Flask app with crawler type: scrapy")
     logger.info(f"RabbitMQ host: {event_manager.host}:{event_manager.port}")
     
     try:

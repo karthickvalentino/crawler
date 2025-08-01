@@ -5,28 +5,24 @@ Handles RabbitMQ events and manages crawler lifecycle
 
 import asyncio
 import logging
-from typing import Dict, Any
 from datetime import datetime
-
-from src.rabbitmq_events import (
-    CrawlerEvent, 
-    publish_crawler_event,
-    register_crawler_event_handler
-)
+from typing import Any, Dict
 
 from src.crawlers.crawler_factory import (
-    create_scrapy_crawler_with_settings,
-    create_selenium_crawler_with_options,
     create_and_register_crawler,
-    start_crawler_by_name,
-    stop_crawler_by_name,
+    get_crawler_manager,
+    get_crawler_status_by_name,
     pause_crawler_by_name,
     resume_crawler_by_name,
-    get_crawler_status_by_name,
-    get_crawler_manager
+    start_crawler_by_name,
+    stop_crawler_by_name,
 )
-from src.crawlers.impl import CrawlerFactory
 from src.crawlers.interface import CrawlerStatus
+from src.rabbitmq_events import (
+    CrawlerEvent,
+    publish_crawler_event,
+    register_crawler_event_handler,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -37,116 +33,43 @@ class CrawlerEventHandler:
         self.loop = loop
         self.active_crawlers = {}  # Track active crawlers
         
-    def run_async(self, coro):
-        """Run async function in the event loop"""
-        future = asyncio.run_coroutine_threadsafe(coro, self.loop)
-        return future.result(timeout=30)
-    
-    def get_crawler_type_from_env(self) -> str:
-        """Get crawler type from environment variable"""
-        import os
-        crawler_type = os.getenv('CRAWLER_TYPE', 'scrapy').lower()
-        supported_types = CrawlerFactory.get_supported_types()
-        
-        if crawler_type not in supported_types:
-            logger.warning(f"Unsupported crawler type '{crawler_type}'. Using 'scrapy'.")
-            crawler_type = 'scrapy'
-        
-        return crawler_type
-    
     def create_crawler_from_event_data(self, data: Dict[str, Any]) -> str:
         """Create a crawler from event data"""
         job_id = data.get('job_id')
         url = data.get('url')
         depth = data.get('depth', 1)
         custom_flags = data.get('flags', {})
-        crawler_type = data.get('crawler_type') or self.get_crawler_type_from_env()
         
         crawler_name = f"crawler_{job_id}"
         
         try:
-            if crawler_type == 'scrapy':
-                spider_name = custom_flags.get('spider_name', 'default_spider')
-                settings = {
-                    'DEPTH_LIMIT': depth,
-                    'START_URLS': [url],
-                    'DOWNLOAD_DELAY': custom_flags.get('download_delay', 1),
-                    'CONCURRENT_REQUESTS': custom_flags.get('concurrent_requests', 8),
-                    'ROBOTSTXT_OBEY': custom_flags.get('obey_robots', True),
-                    **custom_flags.get('scrapy_settings', {})
-                }
-                
-                crawler = create_scrapy_crawler_with_settings(
-                    name=crawler_name,
-                    spider_name=spider_name,
-                    custom_settings=settings,
-                    spider_module=custom_flags.get('spider_module'),
-                    auto_register=True
-                )
-                
-            elif crawler_type == 'selenium':
-                driver_type = custom_flags.get('driver_type', 'chrome')
-                options = {
-                    'start_url': url,
-                    'max_depth': depth,
-                    'disable_images': custom_flags.get('disable_images', True),
-                    **custom_flags.get('selenium_options', {})
-                }
-                
-                crawler = create_selenium_crawler_with_options(
-                    name=crawler_name,
-                    driver_type=driver_type,
-                    headless=custom_flags.get('headless', True),
-                    timeout=custom_flags.get('timeout', 30),
-                    custom_options=options,
-                    auto_register=True
-                )
-                
-            elif crawler_type == 'api':
-                config = {
-                    'base_url': url,
-                    'endpoints': custom_flags.get('endpoints', ['/']),
-                    'rate_limit': custom_flags.get('rate_limit', 1.0),
-                    'max_depth': depth,
-                    **custom_flags.get('api_config', {})
-                }
-                
-                crawler = create_and_register_crawler(
-                    crawler_type='api',
-                    name=crawler_name,
-                    config=config,
-                    auto_start=False
-                )
+            config = {
+                'start_url': url,
+                'depth': depth,
+                **custom_flags
+            }
             
-            else:
-                config = {
-                    'url': url,
-                    'depth': depth,
-                    **custom_flags
-                }
-                
-                crawler = create_and_register_crawler(
-                    crawler_type=crawler_type,
-                    name=crawler_name,
-                    config=config,
-                    auto_start=False
-                )
+            crawler = create_and_register_crawler(
+                name=crawler_name,
+                config=config,
+                auto_register=True
+            )
             
             if crawler:
                 # Store crawler info
                 self.active_crawlers[job_id] = {
                     'crawler_name': crawler_name,
-                    'crawler_type': crawler_type,
+                    'crawler_type': 'scrapy',
                     'url': url,
                     'depth': depth,
                     'flags': custom_flags,
                     'created_at': datetime.now().isoformat()
                 }
                 
-                logger.info(f"Created {crawler_type} crawler: {crawler_name} for job: {job_id}")
+                logger.info(f"Created scrapy crawler: {crawler_name} for job: {job_id}")
                 return crawler_name
             else:
-                logger.error(f"Failed to create {crawler_type} crawler for job: {job_id}")
+                logger.error(f"Failed to create scrapy crawler for job: {job_id}")
                 return None
                 
         except Exception as e:
@@ -174,7 +97,7 @@ class CrawlerEventHandler:
                 crawler_name = self.active_crawlers[job_id]['crawler_name']
             
             # Start the crawler
-            success = self.run_async(start_crawler_by_name(crawler_name))
+            success = start_crawler_by_name(crawler_name)
             
             if success:
                 # Publish success event
@@ -221,7 +144,7 @@ class CrawlerEventHandler:
             crawler_name = self.active_crawlers[job_id]['crawler_name']
             
             # Stop the crawler
-            success = self.run_async(stop_crawler_by_name(crawler_name))
+            success = stop_crawler_by_name(crawler_name)
             
             if success:
                 # Remove from active crawlers
@@ -261,7 +184,7 @@ class CrawlerEventHandler:
             crawler_name = self.active_crawlers[job_id]['crawler_name']
             
             # Pause the crawler
-            success = self.run_async(pause_crawler_by_name(crawler_name))
+            success = pause_crawler_by_name(crawler_name)
             
             if success:
                 publish_crawler_event(CrawlerEvent.CRAWLER_PAUSED, {
@@ -294,7 +217,7 @@ class CrawlerEventHandler:
             crawler_name = self.active_crawlers[job_id]['crawler_name']
             
             # Resume the crawler
-            success = self.run_async(resume_crawler_by_name(crawler_name))
+            success = resume_crawler_by_name(crawler_name)
             
             if success:
                 publish_crawler_event(CrawlerEvent.CRAWLER_RESUMED, {
@@ -317,8 +240,8 @@ class CrawlerEventHandler:
     def _start_crawler_monitoring(self, job_id: str, crawler_name: str):
         """Start monitoring crawler progress and status"""
         def monitor():
-            import time
             import threading
+            import time
             
             def monitor_loop():
                 last_status = None
