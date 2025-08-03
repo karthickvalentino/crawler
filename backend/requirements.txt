@@ -56,6 +56,10 @@ wheel==0.45.1
 zope.interface==7.2
 alembic
 
+# Web Framework
+fastapi
+uvicorn[standard]
+
 # Testing and Linting
 pytest
 pytest-cov
@@ -63,3 +67,4 @@ pytest-mock
 flake8
 black
 isort
+httpx

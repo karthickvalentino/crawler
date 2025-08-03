@@ -100,10 +100,10 @@ npm run db:up
 
 #### Backend
 
-Start the Flask application.
+Start the FastAPI application using Uvicorn.
 
 ```bash
-conda run -n crawler python backend/src/app.py
+conda run -n crawler uvicorn backend.src.main:app --host 0.0.0.0 --port 5000 --reload
 ```
 
 The backend will be running at `http://localhost:5000`.
@@ -119,6 +119,15 @@ npm run dev
 ```
 
 The frontend will be running at `http://localhost:3000`.
+
+## API Documentation
+
+The API is built with FastAPI, which provides automatic, interactive documentation. Once the backend server is running, you can access the documentation at:
+
+*   **Swagger UI**: [http://localhost:5000/docs](http://localhost:5000/docs)
+*   **ReDoc**: [http://localhost:5000/redoc](http://localhost:5000/redoc)
+
+These interfaces allow you to explore and test all the available API endpoints directly from your browser.
 
 ## Database Migrations
 
@@ -148,22 +157,6 @@ To revert the last migration, use the `db:down` command:
 ```bash
 npm run db:down
 ```
-
-## API Endpoints
-
-The main API endpoints are defined in `backend/src/app.py`.
-
-*   `POST /start-crawler`: Starts a new crawling job.
-    *   **Body (JSON)**: `{ "domain": "https://example.com", "depth": 2 }`
-*   `POST /stop-crawler/<job_id>`: Stops a running crawler.
-*   `GET /crawler-status/<job_id>`: Gets the status of a specific job.
-*   `GET /crawlers-status`: Gets the status of all jobs.
-*   `POST /search`: Performs a semantic search on the crawled data.
-    *   **Body (JSON)**: `{ "query": "your search query", "limit": 5 }`
-*   `GET /api/jobs`: Get a list of all jobs.
-*   `GET /api/jobs/<job_id>`: Get a specific job by ID.
-*   `PUT /api/jobs/<job_id>`: Update a job.
-*   `DELETE /api/jobs/<job_id>`: Delete a job.
 
 ## Debugging
 
