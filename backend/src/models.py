@@ -43,7 +43,6 @@ class Job(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
     status = Column(String, nullable=False, default='pending')
-    job_type = Column(String, nullable=False)
     parameters = Column(JSON)
     result = Column(JSON)
     created_at = Column(DateTime, server_default=func.now())
@@ -51,11 +50,9 @@ class Job(Base):
 
     __table_args__ = (
         Index('idx_jobs_status', 'status'),
-        Index('idx_jobs_job_type', 'job_type'),
     )
 
 class JobBase(BaseModel):
-    job_type: str
     parameters: Optional[Dict[str, Any]] = None
 
 class JobCreate(JobBase):

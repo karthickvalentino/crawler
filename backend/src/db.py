@@ -72,10 +72,10 @@ def create_job(job_in: JobCreate) -> Dict[str, Any]:
     with get_db_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("""
-                INSERT INTO jobs (job_type, parameters, status)
-                VALUES (%s, %s, 'pending')
-                RETURNING id, job_type, parameters, status, created_at, updated_at
-            """, (job_in.job_type, Json(job_in.parameters or {})))
+                INSERT INTO jobs (parameters, status)
+                VALUES (%s, 'pending')
+                RETURNING id, parameters, status, created_at, updated_at
+            """, (Json(job_in.parameters or {}),))
             return cur.fetchone()
 
 def get_job(job_id: UUID) -> Optional[Dict[str, Any]]:
