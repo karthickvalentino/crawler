@@ -6,6 +6,7 @@
 /.idea
 /.nyc**
 # dotenv environment variables file
+.env
 
 # zipped files
 
