@@ -2,10 +2,11 @@ import requests
 import  numpy as np
 from numpy import random, dot, linalg
 from sklearn.decomposition import TruncatedSVD
+from src.config import settings
 
 def create_embedding_with_ollama(text, model="llama3.2:latest"):
     response = requests.post(
-        "http://localhost:11434/api/embeddings",
+        settings.ollama_url,
         json={"model": model, "prompt": text}
     )
     response.raise_for_status()

@@ -1,17 +1,33 @@
 import scrapy
-from src.rabbitmq_events import event_manager, CrawlerEvent
+from scrapy.spiders import CrawlSpider, Rule
+from scrapy.linkextractors import LinkExtractor
 
-class DynamicSpider(scrapy.Spider):
-    name = "dynamic_spider"
+class DynamicCrawlSpider(CrawlSpider):
+    name = "dynamic_crawler"
 
-    def __init__(self, start_url=None, custom_flags={}, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.start_urls = [start_url]
-        self.allowed_domains = [start_url.split("//")[-1].split("/")[0]]
-        self.custom_flags = custom_flags
+    def __init__(self, *args, **kwargs):
+        # We will get start_urls and allowed_domains from the kwargs
+        self.start_urls = kwargs.get('start_urls', [])
+        self.allowed_domains = kwargs.get('allowed_domains', [])
+        
+        # Dynamically create rules for the link extractor
+        DynamicCrawlSpider.rules = (
+            Rule(
+                LinkExtractor(allow_domains=self.allowed_domains),
+                callback='parse_item',
+                follow=True
+            ),
+        )
+        
+        super(DynamicCrawlSpider, self).__init__(*args, **kwargs)
 
-    def parse(self, response):
+    def parse_item(self, response):
+        """
+        This method is called for each page crawled.
+        It extracts data and yields an item.
+        """
         self.logger.info(f"Parsing page: {response.url}")
+
         meta_tags = {
             meta.attrib.get("name") or meta.attrib.get("property"): meta.attrib.get("content")
             for meta in response.xpath("//meta[@name or @property]")
@@ -20,43 +36,20 @@ class DynamicSpider(scrapy.Spider):
 
         title = response.xpath("//title/text()").get()
         meta_desc = response.xpath("//meta[@name='description']/@content").get()
-        headings = response.xpath("//h1/text() | //h2/text() | //h3/text() | //h4/text()").getall()
-        main = response.xpath("//main//text()").getall()
-        section = response.xpath("//section//text()").getall()
-        paragraphs = response.xpath("//p//text()").getall()
+        
+        # A more robust way to get all text content, excluding scripts/styles
         body_text = response.xpath(
             "//body//*[not(self::script or self::style or self::noscript or self::template or self::svg)]/text()[normalize-space()]"
         ).getall()
 
-        content_pieces = [
-            f"Title: {title}",
-            "Headings: " + " | ".join(headings),
-            "Section: " + " ".join(section),
-            "Paragraphs: " + " ".join(paragraphs),
-            "Body: " + " ".join(t.strip() for t in body_text if t.strip())
-        ]
+        full_text = " ".join(t.strip() for t in body_text if t.strip())
 
-        full_text = "\n".join([piece for piece in content_pieces if piece]).strip()
-
-        page_data = {
+        # Yield a dictionary (which acts as a Scrapy Item)
+        # This will be caught by the CeleryPipeline
+        yield {
             "url": response.url,
             "title": title,
             "meta_description": meta_desc,
             "meta_tags": meta_tags,
             "content": full_text,
         }
-
-        # Publish event for async processing
-        event_manager.publish_event(
-            CrawlerEvent.PAGE_PROCESSED,
-            page_data,
-            routing_key='crawler.data.page_processed'
-        )
-        self.logger.info(f"Published PAGE_PROCESSED event for {response.url}")
-
-        # Follow links
-        for href in response.css("a::attr(href)").getall():
-            url = response.urljoin(href)
-            if self.allowed_domains[0] in url:
-                yield scrapy.Request(url, callback=self.parse)
-

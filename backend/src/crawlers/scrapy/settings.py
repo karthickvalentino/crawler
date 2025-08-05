@@ -1,7 +1,18 @@
 BOT_NAME = "scrapy_project"
 
-SPIDER_MODULES = ["src.scrapy_project.spiders"]
-NEWSPIDER_MODULE = "src.scrapy_project.spiders"
+SPIDER_MODULES = ["src.crawlers.scrapy"]
+NEWSPIDER_MODULE = "src.crawlers.scrapy"
 
+# Obey robots.txt rules
 ROBOTSTXT_OBEY = True
-DEPTH_LIMIT = 1  # Can be overridden from app
+
+# Set a default depth limit
+DEPTH_LIMIT = 1
+
+# Configure a default user agent
+USER_AGENT = 'Mozilla/5.0 (compatible; MyCrawler/1.0; +http://www.example.com)'
+
+# Configure item pipelines
+ITEM_PIPELINES = {
+   'src.crawlers.scrapy.pipelines.CeleryPipeline': 300,
+}

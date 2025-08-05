@@ -15,20 +15,29 @@ services:
     networks:
       - crawler_network
 
-  rabbitmq:
-    image: rabbitmq:3.12-management
-    container_name: crawler_rabbitmq
-    hostname: rabbitmq
+  redis:
+    image: redis:7-alpine
+    container_name: crawler_redis
+    restart: always
     ports:
-      - "5672:5672"    # AMQP port
-      - "15672:15672"  # Management UI port
-    environment:
-      RABBITMQ_ERLANG_COOKIE: supersecretcookievalue123
-      RABBITMQ_DEFAULT_USER: crawler_user
-      RABBITMQ_DEFAULT_PASS: crawler_pass
-      RABBITMQ_DEFAULT_VHOST: crawler_vhost
+      - "6379:6379"
     volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
+      - redis_data:/data
+    networks:
+      - crawler_network
+
+  celery_worker:
+    build:
+      context: ./backend
+    container_name: crawler_celery_worker
+    command: celery -A src.celery_app worker --loglevel=info
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - ./backend/.env.example
     networks:
       - crawler_network
 
@@ -56,7 +65,7 @@ services:
 
 volumes:
   pg_data:
-  rabbitmq_data:
+  redis_data:
   ollama_data:
 
 networks:
