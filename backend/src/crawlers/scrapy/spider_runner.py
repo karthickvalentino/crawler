@@ -1,6 +1,6 @@
 from scrapy.crawler import CrawlerProcess
 from scrapy.utils.project import get_project_settings
-from src.crawlers.scrapy.dynamic_spider import DynamicSpider
+from src.crawlers.scrapy.dynamic_spider import DynamicCrawlSpider
 
 def run_crawler(url, depth=1, output="output.json", custom_flags=None):
 
@@ -11,5 +11,5 @@ def run_crawler(url, depth=1, output="output.json", custom_flags=None):
     settings.set("LOG_ENABLED", False)
 
     process = CrawlerProcess(settings)
-    process.crawl(DynamicSpider, start_url=url, custom_flags=custom_flags or {})
+    process.crawl(DynamicCrawlSpider, start_url=url, custom_flags=custom_flags or {})
     process.start()

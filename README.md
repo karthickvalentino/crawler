@@ -1,26 +1,59 @@
 # Asynchronous Web Crawler and Semantic Search Engine
 
-This project is a powerful and scalable web crawling system designed to fetch, process, and index web content for semantic search. It uses an asynchronous, message-driven architecture with RabbitMQ and Scrapy for crawling.
+This project is a powerful and scalable web crawling system designed to fetch, process, and index web content for semantic search. It uses an asynchronous, message-driven architecture with Celery, Redis and Scrapy for crawling.
+
+## Architecture
+
+The application is composed of several services that work together to provide a scalable and resilient system.
+
+```mermaid
+graph TD
+    subgraph Browser
+        A[Next.js Frontend]
+    end
+
+    subgraph Backend
+        B[FastAPI Server]
+        C[Celery Worker]
+        D[Scrapy Crawler]
+    end
+
+    subgraph Services
+        E[PostgreSQL + pgvector]
+        F[Redis]
+        G[Ollama]
+    end
+
+    A -->|API Requests| B
+    B -->|Create Job| F
+    C -->|Consume Job| F
+    C -->|Run Crawler| D
+    D -->|Scraped Data| C
+    C -->|Store Data & Embeddings| E
+    C -->|Cache Results| F
+    C -->|Generate Embeddings| G
+```
+
+### Components
+
+*   **Next.js Frontend**: A modern, user-friendly interface for managing and monitoring crawling jobs.
+*   **FastAPI Server**: A Python-based backend that provides a RESTful API for interacting with the system.
+*   **Celery Worker**: A distributed task queue that handles asynchronous tasks like running crawlers and processing data.
+*   **Scrapy Crawler**: A powerful and flexible web crawling framework used to fetch web content.
+*   **PostgreSQL + pgvector**: A relational database with vector support for storing and querying structured data and semantic embeddings.
+*   **Redis**: An in-memory data store used as a Celery message broker and for storing task results and as a cache.
+*   **Ollama**: A service for running large language models locally, used to generate vector embeddings for semantic search.
+
 
 ## Features
 
-*   **Asynchronous Crawling**: Utilizes RabbitMQ to manage crawling jobs, allowing for non-blocking operations and easy scalability.
+*   **Asynchronous Crawling**: Utilizes Celery and Redis to manage crawling jobs, allowing for non-blocking operations and easy scalability.
 *   **Scrapy-based Crawling**: Uses the powerful and flexible Scrapy framework for web crawling.
 *   **Semantic Search**: Leverages vector embeddings (via `pgvector`) to provide intelligent, meaning-based search over the crawled data.
 *   **Modern Frontend**: A Next.js and Shadcn UI-based frontend provides a user-friendly interface to manage and monitor crawling jobs.
-*   **Dockerized Infrastructure**: Core dependencies like PostgreSQL, RabbitMQ, and Ollama are managed with Docker, ensuring a consistent and easy-to-set-up environment.
+*   **Dockerized Infrastructure**: Core dependencies like PostgreSQL, Redis, and Ollama are managed with Docker, ensuring a consistent and easy-to-set-up environment.
 *   **Database Migrations**: Uses Alembic to manage database schema changes in a structured and version-controlled way.
-*   **RESTful API**: A Flask-based API provides endpoints to start, stop, and monitor crawlers, as well as perform searches.
-
-## Frontend
-
-The frontend is a Next.js application that provides a user-friendly interface for interacting with the crawler system.
-
-### Current Features
-
-*   **Dashboard**: View analytics such as total domains, total URLs, running crawlers, and completed jobs.
-*   **Jobs Management**: View a list of all crawling jobs, create new jobs, and stop or delete existing jobs.
-*   **Web Pages**: View a list of all crawled web pages with pagination and search functionality.
+*   **RESTful API**: A FastAPI-based API provides endpoints to start, stop, and monitor crawlers, as well as perform searches.
 
 ## Directory Structure
 
@@ -34,7 +67,7 @@ The frontend is a Next.js application that provides a user-friendly interface fo
 │   ├── requirements.txt
 │   ├── alembic/
 │   └── src/
-│       ├── app.py
+│       ├── main.py
 │       ├── models.py
 │       └── ...
 └── frontend/
@@ -77,7 +110,7 @@ This project uses a Conda environment to manage Python dependencies.
 
 ```bash
 # Create and activate the conda environment
-conda create -n crawler python=3.10 -y
+conda create -n crawler python=3.13 -y
 conda activate crawler
 
 # Install the required python packages
@@ -89,7 +122,7 @@ pip install -r backend/requirements.txt
 These commands will start the Docker containers and then apply the database migrations.
 
 ```bash
-# Start Docker containers (Postgres, RabbitMQ, Ollama)
+# Start Docker containers (Postgres, Redis, Ollama)
 npm run docker:up
 
 # Apply database migrations
@@ -103,10 +136,18 @@ npm run db:up
 Start the FastAPI application using Uvicorn.
 
 ```bash
-conda run -n crawler uvicorn backend.src.main:app --host 0.0.0.0 --port 5000 --reload
+conda run -n crawler uvicorn src.main:app --host 0.0.0.0 --port 5000 --reload
 ```
 
 The backend will be running at `http://localhost:5000`.
+
+#### Celery Worker
+
+In a separate terminal, start the Celery worker.
+
+```bash
+conda run -n crawler celery -A src.celery_app worker --loglevel=info
+```
 
 #### Frontend
 
@@ -162,11 +203,11 @@ npm run db:down
 
 Here are some common issues and how to resolve them:
 
-### RabbitMQ Issues
+### Celery/Redis Issues
 
-*   **Check the logs**: Use `docker logs <rabbitmq-container-name>` to check for any errors.
-*   **Memory allocation**: Ensure that the RabbitMQ container has enough memory allocated to it.
-*   **Authentication**: Verify that the username and password in your `.env` file match the credentials configured in `docker-compose.yml`.
+*   **Check the logs**: Use `docker logs <celery-worker-container-name>` and `docker logs <redis-container-name>` to check for any errors.
+*   **Memory allocation**: Ensure that the Redis container has enough memory allocated to it.
+*   **Authentication**: Verify that the credentials in your `.env` file are correct.
 
 ### Database Errors
 

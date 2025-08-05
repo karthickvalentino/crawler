@@ -43,12 +43,12 @@ def mock_db_functions():
         }
 
 @pytest.fixture
-def mock_rabbitmq_publish():
+def mock_celery_task():
     """
-    Mock the RabbitMQ publish function.
+    Mock the Celery task.
     """
-    with patch('src.main.publish_crawler_event') as mock_publish:
-        yield mock_publish
+    with patch('src.main.run_crawler_task.delay') as mock_task:
+        yield mock_task
 
 def test_list_jobs_api(client, mock_db_functions):
     """
@@ -92,13 +92,12 @@ def test_get_job_api_not_found(client, mock_db_functions):
     assert response.status_code == 404
     assert response.json() == {"detail": "Job not found"}
 
-def test_start_crawler_success(client, mock_db_functions, mock_rabbitmq_publish):
+def test_start_crawler_success(client, mock_db_functions, mock_celery_task):
     """
     Test the endpoint for starting a crawler successfully.
     """
     job_id = uuid.uuid4()
     mock_db_functions['create_job'].return_value = {"id": job_id}
-    mock_rabbitmq_publish.return_value = True
     mock_db_functions['update_job'].return_value = True
 
     request_data = {
@@ -116,25 +115,10 @@ def test_start_crawler_success(client, mock_db_functions, mock_rabbitmq_publish)
     assert data['job_id'] == str(job_id)
     
     mock_db_functions['create_job'].assert_called_once()
-    mock_rabbitmq_publish.assert_called_once()
+    mock_celery_task.assert_called_once_with(str(job_id), "example.com", 2, {"some_flag": True})
     mock_db_functions['update_job'].assert_called_once()
 
-def test_start_crawler_publish_failure(client, mock_db_functions, mock_rabbitmq_publish):
-    """
-    Test the endpoint for starting a crawler when RabbitMQ publishing fails.
-    """
-    job_id = uuid.uuid4()
-    mock_db_functions['create_job'].return_value = {"id": job_id}
-    mock_rabbitmq_publish.return_value = False
 
-    request_data = {"domain": "example.com"}
-
-    response = client.post("/start-crawler", json=request_data)
-
-    assert response.status_code == 500
-    assert response.json() == {"detail": "Failed to queue crawler job"}
-    
-    mock_db_functions['update_job'].assert_called_once()
 
 def test_dashboard_analytics_endpoint(client, mock_db_functions):
     """
