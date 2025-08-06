@@ -1,5 +1,6 @@
 from celery import Celery
 from src.config import settings
+from src.instrumentation import instrument_celery
 
 # Define the Celery app
 celery_app = Celery(
@@ -8,6 +9,7 @@ celery_app = Celery(
     backend=settings.celery_result_backend,
     include=["src.tasks"]  # Point to the module where tasks are defined
 )
+instrument_celery(celery_app)
 
 # Celery configuration
 celery_app.conf.update(

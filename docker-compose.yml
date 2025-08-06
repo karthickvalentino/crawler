@@ -34,8 +34,29 @@ services:
     volumes:
       - ./backend:/app
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_started
+      redis:
+        condition: service_started
+    env_file:
+      - ./backend/.env.example
+    networks:
+      - crawler_network
+
+  fastapi_app:
+    build:
+      context: ./backend
+    container_name: crawler_fastapi_app
+    command: uvicorn src.main:app --host 0.0.0.0 --port 5000
+    volumes:
+      - ./backend:/app
+    ports:
+      - "5000:5000"
+    depends_on:
+      db:
+        condition: service_started
+      redis:
+        condition: service_started
     env_file:
       - ./backend/.env.example
     networks:
@@ -62,6 +83,19 @@ services:
     volumes:
       - ./ollama_setup.sh:/ollama_setup.sh
     command: ["sh", "/ollama_setup.sh"]
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: crawler_otel_collector
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP
+      - "13133:13133" # Health Check
+    networks:
+      - crawler_network
 
 volumes:
   pg_data:

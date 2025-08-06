@@ -110,7 +110,7 @@ This project uses a Conda environment to manage Python dependencies.
 
 ```bash
 # Create and activate the conda environment
-conda create -n crawler python=3.13 -y
+conda create -n crawler python=3.12 -y
 conda activate crawler
 
 # Install the required python packages

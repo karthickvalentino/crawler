@@ -22,11 +22,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+from src.instrumentation import instrument_application
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
     Handles startup and shutdown events for the FastAPI application.
     """
+    instrument_application(app)
     logger.info("System initializing...")
     yield
     logger.info("Application shutdown complete")
