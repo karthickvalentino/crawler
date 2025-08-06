@@ -7,6 +7,10 @@ receivers:
         endpoint: 0.0.0.0:4318
 
 exporters:
+  otlp:
+    endpoint: crawler_jaeger:4317
+    tls:
+      insecure: true
   debug:
     verbosity: detailed
 
@@ -19,7 +23,7 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      exporters: [debug]
+      exporters: [otlp]
     metrics:
       receivers: [otlp]
       exporters: [debug]
