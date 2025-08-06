@@ -5,12 +5,30 @@ receivers:
         endpoint: 0.0.0.0:4317
       http:
         endpoint: 0.0.0.0:4318
+  filelog:
+    include: [ /var/log/docker/containers/*/*.log ]
+    start_at: beginning
+    operators:
+      - type: json_parser
+        id: parser-docker
+        output: extract_metadata_from_filepath
+        timestamp:
+          parse_from: body.time
+          layout: '%Y-%m-%dT%H:%M:%S.%LZ'
+      - type: move
+        from: body.log
+        to: body
+        id: extract_metadata_from_filepath
 
 exporters:
   otlp:
     endpoint: crawler_jaeger:4317
     tls:
       insecure: true
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+  loki:
+    endpoint: "http://crawler_loki:3100/loki/api/v1/push"
   debug:
     verbosity: detailed
 
@@ -26,4 +44,7 @@ service:
       exporters: [otlp]
     metrics:
       receivers: [otlp]
-      exporters: [debug]
+      exporters: [prometheus]
+    logs:
+      receivers: [filelog]
+      exporters: [loki]
