@@ -34,12 +34,43 @@ services:
     volumes:
       - ./backend:/app
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_started
+      redis:
+        condition: service_started
     env_file:
       - ./backend/.env.example
     networks:
       - crawler_network
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://crawler_loki:3100/loki/api/v1/push"
+        loki-external-labels: job={{.Name}}
+
+  fastapi_app:
+    build:
+      context: ./backend
+    container_name: crawler_fastapi_app
+    command: uvicorn src.main:app --host 0.0.0.0 --port 5000
+    volumes:
+      - ./backend:/app
+    ports:
+      - "5000:5000"
+    depends_on:
+      db:
+        condition: service_started
+      redis:
+        condition: service_started
+    env_file:
+      - ./backend/.env.example
+    networks:
+      - crawler_network
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://crawler_loki:3100/loki/api/v1/push"
+        loki-external-labels: job={{.Name}}
 
   ollama:
     image: ollama/ollama
@@ -63,10 +94,75 @@ services:
       - ./ollama_setup.sh:/ollama_setup.sh
     command: ["sh", "/ollama_setup.sh"]
 
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.80.0
+    container_name: crawler_otel_collector
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP
+      - "13133:13133" # Health Check
+      - "8889:8889"   # Prometheus
+    depends_on:
+      - jaeger
+      - loki
+    networks:
+      - crawler_network
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: crawler_jaeger
+    restart: always
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "14268:14268"  # jaeger-collector http thrift
+      - "14250:14250"  # jaeger-collector grpc
+    networks:
+      - crawler_network
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: crawler_prometheus
+    restart: always
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - crawler_network
+
+  loki:
+    image: grafana/loki:latest
+    container_name: crawler_loki
+    restart: always
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./loki-config.yaml:/etc/loki/local-config.yaml
+      - loki_data:/loki
+    ports:
+      - "3100:3100" # Loki API
+    networks:
+      - crawler_network
+    working_dir: /loki
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: crawler_grafana
+    restart: always
+    ports:
+      - "3001:3000" # Grafana UI
+    volumes:
+      - ./grafana-provisioning:/etc/grafana/provisioning
+    networks:
+      - crawler_network
+
 volumes:
   pg_data:
   redis_data:
   ollama_data:
+  loki_data:
 
 networks:
   crawler_network:
