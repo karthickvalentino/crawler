@@ -199,6 +199,38 @@ To revert the last migration, use the `db:down` command:
 npm run db:down
 ```
 
+## Observability
+
+The project is configured with a comprehensive observability stack to provide insights into the application's performance, logs, and traces. The stack includes Grafana, Loki, Prometheus, and Jaeger.
+
+### Accessing the UIs
+
+*   **Grafana**: [http://localhost:3001](http://localhost:3001)
+    *   **Credentials**: `admin` / `admin`
+*   **Loki**: Logs are queried through Grafana.
+*   **Prometheus**: [http://localhost:9090](http://localhost:9090)
+*   **Jaeger**: [http://localhost:16686](http://localhost:16686)
+
+### Viewing Logs in Grafana
+
+1.  Navigate to the Grafana UI.
+2.  On the left-hand menu, go to **Explore**.
+3.  Select the **Loki** data source from the dropdown at the top.
+4.  Use the **Log browser** to build a query. For example, to see logs from the `fastapi_app` service, you can use the query `{compose_service="crawler_fastapi_app"}`.
+
+### Creating Alerts in Grafana
+
+Grafana allows you to create alerts based on log patterns or metrics.
+
+1.  **Create a new dashboard panel**:
+    *   Go to **Dashboards** > **New dashboard**.
+    *   Add a new panel and select the **Loki** or **Prometheus** data source.
+2.  **Define the query**:
+    *   Write a query that returns the data you want to alert on. For example, a query to count errors in the `fastapi_app` logs: `count_over_time({compose_service="crawler_fastapi_app"} |= "ERROR" [5m])`
+3.  **Create the alert rule**:
+    *   In the panel settings, go to the **Alert** tab.
+    *   Click **Create alert rule** and configure the conditions, evaluation interval, and notification channels.
+
 ## Debugging
 
 Here are some common issues and how to resolve them:
