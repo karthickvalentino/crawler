@@ -42,18 +42,30 @@ graph TD
 *   **Scrapy Crawler**: A powerful and flexible web crawling framework used to fetch web content.
 *   **PostgreSQL + pgvector**: A relational database with vector support for storing and querying structured data and semantic embeddings.
 *   **Redis**: An in-memory data store used as a Celery message broker and for storing task results and as a cache.
-*   **Ollama**: A service for running large language models locally, used to generate vector embeddings for semantic search.
+*   **Ollama**: A service for running large language models locally, used to generate vector embeddings for semantic search. The system uses `llama3.2` for text and `llava` for images.
 
 
 ## Features
 
 *   **Asynchronous Crawling**: Utilizes Celery and Redis to manage crawling jobs, allowing for non-blocking operations and easy scalability.
-*   **Scrapy-based Crawling**: Uses the powerful and flexible Scrapy framework for web crawling.
+*   **Multi-Content Support**: In addition to HTML, the crawler can process and index PDF documents and images.
 *   **Semantic Search**: Leverages vector embeddings (via `pgvector`) to provide intelligent, meaning-based search over the crawled data.
+*   **Multimodal Embeddings**: Generates both text embeddings (for HTML/PDF) and vision embeddings (for images) using state-of-the-art models.
 *   **Modern Frontend**: A Next.js and Shadcn UI-based frontend provides a user-friendly interface to manage and monitor crawling jobs.
 *   **Dockerized Infrastructure**: Core dependencies like PostgreSQL, Redis, and Ollama are managed with Docker, ensuring a consistent and easy-to-set-up environment.
 *   **Database Migrations**: Uses Alembic to manage database schema changes in a structured and version-controlled way.
 *   **RESTful API**: A FastAPI-based API provides endpoints to start, stop, and monitor crawlers, as well as perform searches.
+
+## Supported Content Types
+
+The crawler can process the following content types:
+
+| Content Type | Description | Embedding Model |
+| :--- | :--- | :--- |
+| **HTML** | Standard web pages. | `llama3.2:latest` (Text) |
+| **PDF** | PDF documents. Text is extracted using `PyMuPDF`. | `llama3.2:latest` (Text) |
+| **Images** | Common image formats (PNG, JPG, etc.). | `llava:latest` (Vision) |
+
 
 ## Directory Structure
 
@@ -256,7 +268,7 @@ Here are some common issues and how to resolve them:
 ### Ollama and Llama Issues
 
 *   **Check Ollama logs**: Use `docker logs <ollama-container-name>` to see if the service is running correctly.
-*   **Model not pulled**: Ensure that the `llama3.2:latest` model has been pulled correctly by Ollama. You can check the logs for messages related to model pulling.
+*   **Model not pulled**: Ensure that the `llama3.2:latest` and `llava:latest` models have been pulled correctly by Ollama. You can check the logs for messages related to model pulling.
 
 ## Contributing
 
