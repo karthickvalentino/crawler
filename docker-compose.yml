@@ -76,12 +76,17 @@ services:
     image: ollama/ollama
     container_name: crawler_ollama
     restart: always
+    init: true
     ports:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
     networks:
       - crawler_network
+    deploy:
+      resources:
+        reservations:
+          memory: 8g
 
   ollama_setup:
     image: appropriate/curl
