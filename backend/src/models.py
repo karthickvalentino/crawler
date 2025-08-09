@@ -30,6 +30,8 @@ class WebPage(Base):
     meta_tags = Column(JSON)
     content = Column(Text)
     embedding = Column(Vector(1024))
+    file_type = Column(String, nullable=False, default='html')
+    embedding_type = Column(String, nullable=False, default='text')
     last_crawled = Column(DateTime, server_default=func.now())
 
     __table_args__ = (

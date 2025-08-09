@@ -5,6 +5,7 @@
   "scripts": {
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
+    "docker:up:force": "docker-compose up -d --force-recreate",
     "db:up": "alembic upgrade head",
     "db:down": "alembic downgrade base",
     "db:new-migration": "alembic revision --autogenerate -m",
