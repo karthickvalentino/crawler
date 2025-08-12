@@ -33,6 +33,12 @@ const Header = () => {
         >
           Jobs
         </Link>
+        <Link
+          href="/chat"
+          className="text-muted-foreground transition-colors hover:text-foreground"
+        >
+          Chat
+        </Link>
       </nav>
       <Sheet>
         <SheetTrigger asChild>
@@ -63,6 +69,12 @@ const Header = () => {
               className="text-muted-foreground hover:text-foreground"
             >
               Jobs
+            </Link>
+            <Link
+              href="/chat"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              Chat
             </Link>
           </nav>
         </SheetContent>
