@@ -50,6 +50,7 @@ graph TD
 *   **Asynchronous Crawling**: Utilizes Celery and Redis to manage crawling jobs, allowing for non-blocking operations and easy scalability.
 *   **Multi-Content Support**: In addition to HTML, the crawler can process and index PDF documents and images.
 *   **Semantic Search**: Leverages vector embeddings (via `pgvector`) to provide intelligent, meaning-based search over the crawled data.
+*   **Interactive Chat UI**: A new chat interface, built with the Vercel AI SDK, allows you to have a conversation with your crawled data. Using a Retrieval-Augmented Generation (RAG) model, you can ask questions and get answers directly from the content of your indexed web pages, PDFs, and images.
 *   **Multimodal Embeddings**: Generates both text embeddings (for HTML/PDF) and vision embeddings (for images) using state-of-the-art models.
 *   **Modern Frontend**: A Next.js and Shadcn UI-based frontend provides a user-friendly interface to manage and monitor crawling jobs.
 *   **Dockerized Infrastructure**: Core dependencies like PostgreSQL, Redis, and Ollama are managed with Docker, ensuring a consistent and easy-to-set-up environment.
