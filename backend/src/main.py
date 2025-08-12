@@ -6,21 +6,15 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 from src.db import create_job, delete_job, get_job, get_jobs, update_job
 from src.models import JobCreate, JobUpdate
-from src.search import get_dashboard_analytics, get_web_pages, search
+from src.search import get_dashboard_analytics, get_web_pages, rag_chat_stream, search
 from src.tasks import run_crawler_task
 from starlette.middleware.cors import CORSMiddleware
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
 logger = logging.getLogger(__name__)
-
-from src.instrumentation import instrument_application
 
 
 @asynccontextmanager
@@ -28,7 +22,6 @@ async def lifespan(app: FastAPI):
     """
     Handles startup and shutdown events for the FastAPI application.
     """
-    instrument_application(app)
     logger.info("System initializing...")
     yield
     logger.info("Application shutdown complete")
@@ -185,6 +178,41 @@ def search_api(req: SearchRequest):
     """Search endpoint"""
     results = search(req.query, req.limit)
     return results
+
+
+class Parts(BaseModel):
+    text: str = None
+    type: str
+
+
+# Corrected Pydantic models for the chat request
+class ChatMessage(BaseModel):
+    id: str
+    role: str
+    parts: List[Parts]
+
+
+class ChatRequest(BaseModel):
+    messages: List[ChatMessage]
+
+
+@app.post("/api/chat")
+async def chat_endpoint(req: ChatRequest):
+    """
+    Handles chat requests by performing a RAG search and streaming the response.
+    """
+    if not req.messages:
+        raise HTTPException(status_code=400, detail="No messages provided")
+
+    # The last message from the user is the query.
+    last_message = req.messages[-1].parts[0].text if req.messages[-1].parts else ""
+
+    # Return a streaming response with the correct media type and the Vercel AI SDK header
+    response = StreamingResponse(
+        rag_chat_stream(last_message), media_type="text/event-stream"
+    )
+    response.headers["X-Vercel-AI-Data-Stream"] = "v1"
+    return response
 
 
 if __name__ == "__main__":
