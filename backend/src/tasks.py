@@ -11,6 +11,8 @@ from src.embeddings import (
     truncate_or_pad_vector,
 )
 from src.models import JobUpdate
+from src.feature_flags import is_feature_enabled
+from src.structured_data import extract_structured_data_with_ollama
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +81,11 @@ def process_page_data_task(self, page_data: dict):
             embedding = normalize(embedding)
             embedding = truncate_or_pad_vector(embedding, dims=1024)
 
+        # Conditionally extract structured data
+        structured_data = None
+        if is_feature_enabled("structured_data_extraction") and content:
+            structured_data = extract_structured_data_with_ollama(content)
+
         db_page_data = {
             "url": url,
             "title": page_data.get("title"),
@@ -88,6 +95,7 @@ def process_page_data_task(self, page_data: dict):
             "embedding": embedding,
             "file_type": file_type,
             "embedding_type": embedding_type,
+            "structured_data": structured_data,
         }
 
         insert_web_page(db_page_data)
@@ -96,4 +104,3 @@ def process_page_data_task(self, page_data: dict):
     except Exception as e:
         logger.error(f"Failed to process and insert page {url}: {e}", exc_info=True)
         raise
-

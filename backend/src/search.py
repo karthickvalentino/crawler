@@ -93,6 +93,7 @@ def search(query, top_k):
                 "title": row["title"],
                 "snippet": snippet,
                 "distance": row["distance"],
+                "structured_data": row.get("structured_data"),
             }
         )
     return output
