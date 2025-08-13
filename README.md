@@ -56,6 +56,63 @@ graph TD
 *   **Dockerized Infrastructure**: Core dependencies like PostgreSQL, Redis, and Ollama are managed with Docker, ensuring a consistent and easy-to-set-up environment.
 *   **Database Migrations**: Uses Alembic to manage database schema changes in a structured and version-controlled way.
 *   **RESTful API**: A FastAPI-based API provides endpoints to start, stop, and monitor crawlers, as well as perform searches.
+*   **Structured Data Extraction**: Automatically extracts structured data (e.g., product details, article metadata) from unstructured HTML using large language models. This feature is powered by Ollama and can be customized for different data schemas.
+
+## Structured Data Extraction
+
+This project includes a powerful feature for extracting structured data from raw HTML content. This is particularly useful for indexing content from e-commerce sites, blogs, or any other web page with a consistent data structure.
+
+### How It Works
+
+1.  **Feature Flag**: The extraction process is controlled by a feature flag, `structured_data_extraction`, which is disabled by default.
+2.  **LLM-Powered Extraction**: When enabled, the crawler sends the HTML content to a large language model (Ollama) with a prompt that asks it to extract specific data fields based on a predefined schema.
+3.  **Storing the Data**: The extracted data is stored in a dedicated `structured_data` JSONB column in the `web_pages` table.
+4.  **Search Integration**: The extracted data is returned as part of the search API results, allowing the frontend to display rich, structured information alongside the standard search snippets.
+
+### Benefits
+
+*   **Enhanced Search Results**: Go beyond simple text snippets and display rich, structured data like prices, author names, or publication dates.
+*   **Improved Data Quality**: Leverage the power of LLMs to intelligently identify and extract data, even from complex or poorly-structured HTML.
+*   **High Customizability**: The extraction schema is not hard-coded. You can easily define new schemas or modify existing ones to suit your specific needs.
+
+### How to Extend and Customize
+
+The structured data extraction is designed to be easily extensible. You can define custom extraction schemas for different types of content (e.g., products, articles, user profiles).
+
+The core logic is located in `backend/src/structured_data.py`. Here's how to add a new schema:
+
+1.  **Define a new Pydantic model**: In `structured_data.py`, create a new Pydantic model that represents the schema you want to extract. For example, to extract real estate listings:
+
+    ```python
+    class RealEstateListing(BaseModel):
+        property_type: str = Field(..., description="The type of property (e.g., 'Apartment', 'House').")
+        price: float = Field(..., description="The listing price.")
+        bedrooms: int = Field(..., description="The number of bedrooms.")
+        bathrooms: int = Field(..., description="The number of bathrooms.")
+    ```
+
+2.  **Add the model to the `EXTRACTION_SCHEMAS` dictionary**: This dictionary maps schema names to their corresponding Pydantic models and prompts.
+
+    ```python
+    EXTRACTION_SCHEMAS = {
+        "ecommerce_product": {
+            "model": EcommerceProduct,
+            "prompt": "Extract the product details from this HTML content.",
+        },
+        "blog_post": {
+            "model": BlogPost,
+            "prompt": "Extract the blog post details from this HTML content.",
+        },
+        "real_estate_listing": {  # Add your new schema here
+            "model": RealEstateListing,
+            "prompt": "Extract the real estate listing details from this HTML content.",
+        },
+    }
+    ```
+
+3.  **Select the schema at runtime**: The schema to be used for extraction can be specified when a crawl is initiated. The default schema is `ecommerce_product`.
+
+By following these steps, you can easily adapt the structured data extraction feature to a wide variety of use cases.
 
 ## Supported Content Types
 
