@@ -1,19 +1,23 @@
-import React from 'react';
+'use client';
+
+import React, { useEffect } from 'react';
 import type { Metadata } from 'next';
 import './globals.css';
 import MainLayout from '@/components/layout/main-layout';
 import { Toaster } from '@/components/ui/sonner';
-
-export const metadata: Metadata = {
-  title: 'Crawler Admin',
-  description: 'Admin dashboard for the web crawler',
-};
+import { useFeatureFlagsStore } from '@/stores/feature-flags';
 
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const { fetchFlags } = useFeatureFlagsStore();
+
+  useEffect(() => {
+    fetchFlags();
+  }, [fetchFlags]);
+
   return (
     <html lang="en">
       <body>
