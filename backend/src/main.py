@@ -12,6 +12,7 @@ from src.db import create_job, delete_job, get_job, get_jobs, update_job
 from src.models import JobCreate, JobUpdate
 from src.search import get_dashboard_analytics, get_web_pages, rag_chat_stream, search
 from src.tasks import run_crawler_task
+from src.feature_flags import get_all_flags, is_feature_enabled, clear_flag_cache
 from starlette.middleware.cors import CORSMiddleware
 
 logger = logging.getLogger(__name__)
@@ -63,6 +64,21 @@ async def generic_exception_handler(request: Request, exc: Exception):
 
 
 # --- API Endpoints ---
+
+@app.get("/api/flags")
+def get_feature_flags():
+    """
+    Returns a dictionary of all feature flags and their current status.
+    """
+    return get_all_flags()
+
+@app.post("/api/flags/clear-cache")
+def clear_feature_flag_cache():
+    """
+    Clears the in-memory cache for feature flags.
+    """
+    clear_flag_cache()
+    return {"message": "Feature flag cache cleared."}
 
 
 @app.get("/dashboard-analytics")
@@ -201,6 +217,9 @@ async def chat_endpoint(req: ChatRequest):
     """
     Handles chat requests by performing a RAG search and streaming the response.
     """
+    if not is_feature_enabled("chat_ui"):
+        raise HTTPException(status_code=404, detail="Chat feature is not enabled.")
+
     if not req.messages:
         raise HTTPException(status_code=400, detail="No messages provided")
 

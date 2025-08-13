@@ -1,11 +1,26 @@
+'use client';
+
 import React from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Menu } from 'lucide-react';
 import { UserNav } from './user-nav';
+import { useFeatureFlagsStore } from '@/stores/feature-flags';
+import clsx from 'clsx';
 
 const Header = () => {
+  const { flags, isLoaded } = useFeatureFlagsStore();
+  const pathname = usePathname();
+
+  const navLinks = [
+    { href: '/', text: 'Dashboard' },
+    { href: '/web-pages', text: 'Web Pages' },
+    { href: '/jobs', text: 'Jobs' },
+    { href: '/chat', text: 'Chat', featureFlag: 'chat_ui' },
+  ];
+
   return (
     <header className="flex h-16 items-center justify-between border-b bg-background px-4 md:px-6">
       <nav className="hidden flex-col gap-6 text-lg font-medium md:flex md:flex-row md:items-center md:gap-5 md:text-sm lg:gap-6">
@@ -15,30 +30,25 @@ const Header = () => {
         >
           <span className="sr-only">Crawler</span>
         </Link>
-        <Link
-          href="/"
-          className="text-foreground transition-colors hover:text-foreground"
-        >
-          Dashboard
-        </Link>
-        <Link
-          href="/web-pages"
-          className="text-muted-foreground transition-colors hover:text-foreground"
-        >
-          Web Pages
-        </Link>
-        <Link
-          href="/jobs"
-          className="text-muted-foreground transition-colors hover:text-foreground"
-        >
-          Jobs
-        </Link>
-        <Link
-          href="/chat"
-          className="text-muted-foreground transition-colors hover:text-foreground"
-        >
-          Chat
-        </Link>
+        {navLinks.map((link) => {
+          if (link.featureFlag && (!isLoaded || !flags[link.featureFlag])) {
+            return null;
+          }
+          return (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={clsx(
+                'transition-colors hover:text-foreground',
+                pathname === link.href
+                  ? 'text-foreground'
+                  : 'text-muted-foreground'
+              )}
+            >
+              {link.text}
+            </Link>
+          );
+        })}
       </nav>
       <Sheet>
         <SheetTrigger asChild>
@@ -55,27 +65,25 @@ const Header = () => {
             >
               <span className="sr-only">Crawler</span>
             </Link>
-            <Link href="/" className="hover:text-foreground">
-              Dashboard
-            </Link>
-            <Link
-              href="/web-pages"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              Web Pages
-            </Link>
-            <Link
-              href="/jobs"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              Jobs
-            </Link>
-            <Link
-              href="/chat"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              Chat
-            </Link>
+            {navLinks.map((link) => {
+              if (link.featureFlag && (!isLoaded || !flags[link.featureFlag])) {
+                return null;
+              }
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={clsx(
+                    'hover:text-foreground',
+                    pathname === link.href
+                      ? 'text-foreground'
+                      : 'text-muted-foreground'
+                  )}
+                >
+                  {link.text}
+                </Link>
+              );
+            })}
           </nav>
         </SheetContent>
       </Sheet>
