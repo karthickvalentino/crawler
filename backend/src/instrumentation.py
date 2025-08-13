@@ -45,6 +45,9 @@ def instrument_application(app: FastAPI):
     """
     Instruments the FastAPI application with OpenTelemetry.
     """
+    # Basic logging configuration for console output
+    logging.basicConfig(level=logging.INFO)
+    
     setup_logging("fastapi-app")
     resource = Resource.create(attributes={"service.name": "fastapi-app"})
 
@@ -54,6 +57,7 @@ def instrument_application(app: FastAPI):
     if not otlp_endpoint:
         # If the endpoint is not set, we disable the exporter
         # This is useful for local development without the collector
+        logging.warning("OTEL_EXPORTER_OTLP_ENDPOINT not set. OTLP exporter is disabled.")
         return
 
     otlp_exporter = OTLPSpanExporter(endpoint=otlp_endpoint, insecure=True)

@@ -10,17 +10,18 @@ from src.embeddings import (
     normalize,
     truncate_or_pad_vector,
 )
-from src.models import JobUpdate
 from src.feature_flags import is_feature_enabled
+from src.models import JobUpdate
 from src.structured_data import extract_structured_data_with_ollama
 
 logger = logging.getLogger(__name__)
 
+
 @celery_app.task(
     bind=True,
     autoretry_for=(Exception,),
-    retry_kwargs={'max_retries': 3, 'countdown': 60},
-    acks_late=True
+    retry_kwargs={"max_retries": 3, "countdown": 60},
+    acks_late=True,
 )
 def run_crawler_task(self, job_id: str, domain: str, depth: int, flags: dict):
     """
@@ -28,27 +29,30 @@ def run_crawler_task(self, job_id: str, domain: str, depth: int, flags: dict):
     """
     try:
         logger.info(f"Starting crawler for job_id: {job_id}, domain: {domain}")
-        update_job(UUID(job_id), JobUpdate(status='running'))
+        print(f"Starting crawler for job_id: {job_id}, domain: {domain}")
+        update_job(UUID(job_id), JobUpdate(status="running"))
 
         run_scrapy_crawl(
             start_urls=[f"https://{domain}"],
             allowed_domains=[domain],
-            depth_limit=depth
+            depth_limit=depth,
         )
-        
-        update_job(UUID(job_id), JobUpdate(status='completed'))
+
+        update_job(UUID(job_id), JobUpdate(status="completed"))
         logger.info(f"Crawler finished for job_id: {job_id}")
+        print(f"Crawler finished for job_id: {job_id}")
 
     except Exception as e:
         logger.error(f"Crawler task failed for job_id: {job_id}: {e}", exc_info=True)
-        update_job(UUID(job_id), JobUpdate(status='failed', result={"error": str(e)}))
+        update_job(UUID(job_id), JobUpdate(status="failed", result={"error": str(e)}))
         raise
+
 
 @celery_app.task(
     bind=True,
     autoretry_for=(Exception,),
-    retry_kwargs={'max_retries': 3, 'countdown': 60},
-    acks_late=True
+    retry_kwargs={"max_retries": 3, "countdown": 60},
+    acks_late=True,
 )
 def process_page_data_task(self, page_data: dict):
     """
@@ -62,9 +66,11 @@ def process_page_data_task(self, page_data: dict):
     if not url:
         logger.error("Received page data with missing URL.")
         return
-    
+
     if not content and file_type not in ["image"]:
-        logger.error(f"Received page data with missing content for file type {file_type}.")
+        logger.error(
+            f"Received page data with missing content for file type {file_type}."
+        )
         return
 
     logger.info(f"Processing {file_type} for embedding and insertion: {url}")
