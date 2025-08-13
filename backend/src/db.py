@@ -77,7 +77,7 @@ def search_web_pages(
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
                 """
-                SELECT url, content, title, (embedding <#> CAST(%s AS vector)) AS distance
+                SELECT url, content, title, structured_data, (embedding <#> CAST(%s AS vector)) AS distance
                 FROM web_pages
                 WHERE (embedding <#> CAST(%s AS vector)) <= %s
                 ORDER BY distance

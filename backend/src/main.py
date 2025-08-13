@@ -9,10 +9,10 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 from src.db import create_job, delete_job, get_job, get_jobs, update_job
+from src.feature_flags import clear_flag_cache, get_all_flags, is_feature_enabled
 from src.models import JobCreate, JobUpdate
 from src.search import get_dashboard_analytics, get_web_pages, rag_chat_stream, search
 from src.tasks import run_crawler_task
-from src.feature_flags import get_all_flags, is_feature_enabled, clear_flag_cache
 from starlette.middleware.cors import CORSMiddleware
 
 logger = logging.getLogger(__name__)
@@ -65,12 +65,14 @@ async def generic_exception_handler(request: Request, exc: Exception):
 
 # --- API Endpoints ---
 
+
 @app.get("/api/flags")
 def get_feature_flags():
     """
     Returns a dictionary of all feature flags and their current status.
     """
     return get_all_flags()
+
 
 @app.post("/api/flags/clear-cache")
 def clear_feature_flag_cache():

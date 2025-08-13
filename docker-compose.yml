@@ -38,6 +38,8 @@ services:
         condition: service_started
       redis:
         condition: service_started
+    environment:
+      - OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
     env_file:
       - ./backend/.env.example
     networks:
